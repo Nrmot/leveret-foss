@@ -28,4 +28,4 @@ jobs:
       env:
         BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         BOT_OWNER_ID: ${{ secrets.BOT_OWNER_ID }}
-      run: python your_bot_script.py
+      run: python main.py
