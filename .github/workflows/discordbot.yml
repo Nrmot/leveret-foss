@@ -1,4 +1,4 @@
-name: Discord Bot CI
+name: Bot Workflow
 
 on:
   push:
@@ -6,26 +6,34 @@ on:
       - main
 
 jobs:
-  build:
-
+  bot-job:
     runs-on: ubuntu-latest
-
+    
     steps:
-    - name: Checkout repository
+    - name: Checkout code
       uses: actions/checkout@v2
 
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
+        python-version: 3.x
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Run Bot
-      env:
-        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-        BOT_OWNER_ID: ${{ secrets.BOT_OWNER_ID }}
+    - name: Run Python script
       run: python main.py
+
+    - name: Dump tags and create artifact
+      run: |
+        mkdir artifacts
+        cp tags_dump.json artifacts/
+      if: always()
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: tags-artifact
+        path: artifacts
