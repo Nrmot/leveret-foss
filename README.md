@@ -1,6 +1,8 @@
 # leveret-foss
 FOSS version of leveret bot on nomifactory and ceu discord
 
+Documentation: Coming Soon. This bot is still in alpha stage.
+
 # leveret-foss
 
 [![GitHub release](https://img.shields.io/github/v/release/Nrmot/leveret-foss/)](https://github.com/Nrmot/leveret-foss/releases)
