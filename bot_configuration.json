@@ -1,6 +1,6 @@
 {
-  "bot_token": "MTE4MzQzOTI0MzI0NzM2MjExOA.GLm_q5.5251cPcKZmwHIDiMzMdp1Z8NH_VD4qjkzJQH7U",
-  "bot_admins": [1101822858814050366],
-  "bot_owner_id": 1101822858814050366,
-  "tag_creator_role_id": []
+  "bot_token": "YOUR BOT TOKEN HERE",
+  "bot_admins": [`BOT ADMINS, MUST BE USER IDS ONLY`],
+  "bot_owner_id": `BOT OWNER OR THE ONE WHO HOSTS THE BOT`,
+  "tag_creator_role_id": [`SPECIFY TAG CREATOR ROLE ID FOR EXCLUSIVE TAG SYSTEM`]
 }
