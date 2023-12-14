@@ -4,7 +4,7 @@ FOSS version of leveret bot on nomifactory and ceu discord
 # leveret-foss
 
 [![GitHub release](https://img.shields.io/github/v/release/Nrmot/leveret-foss/)](https://github.com/Nrmot/leveret-foss/releases)
-[![Discord](https://img.shields.io/discord/your-discord-server-id)](https://discord.gg/your-discord-invite-link)
+[![Discord](https://img.shields.io/discord/KcXBsw2gjr)](https://discord.gg/KcXBsw2gjr)
 [![GitHub issues](https://img.shields.io/github/issues/Nrmot/leveret-foss/)](https://github.com/Nrmot/leveret-foss//issues)
 [![GitHub commits](https://img.shields.io/github/commits-since/Nrmot/leveret-foss//latest/main)](https://github.com/Nrmot/leveret-foss//commits/main)
 
