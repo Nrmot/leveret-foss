@@ -705,21 +705,23 @@ async def on_message(message):
     fear_of_god_emoji = '<:fearofgod:1147324806337937448>'
 
     # Check if the message contains specific keywords
+    # Define the emojis
+    greg_emoji = '<:Greg:1142725256897904651>'
+    fear_of_god_emoji = '<:fearofgod:1147324806337937448>'
+
+    # Check if the message contains specific keywords
     keywords = [":Greg:", "Greg", "greg", "GT"]
     reaction_emoji = greg_emoji if any(keyword in message.content for keyword in keywords) else None
+
+    keywords2 = ["Ungreggy", "Acidic", "Bullshit", ":tci:"]
+    reaction_emoji2 = fear_of_god_emoji if any(keyword in message.content for keyword in keywords2) else None
 
     if reaction_emoji:
         channel = message.channel
         await message.add_reaction(reaction_emoji)
-
-    return
-    keywords = ["Ungreggy", "Acidic", "Bullshit", ":tci:"]
-    reaction_emoji2 = fear_of_god_emoji if any(keyword in message.content for keyword in keywords) else None
-
-    if reaction_emoji2:
+    elif reaction_emoji2:
         channel = message.channel
         await message.add_reaction(reaction_emoji2)
-    return
 
     print(f'Message from {message.author}: {message.content}')
     bot_prefix = '%'
