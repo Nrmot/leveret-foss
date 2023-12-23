@@ -700,30 +700,26 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     # Check if the message contains the :Greg: emoji
-    if ":Greg:" in message.content:
+    # Define the emojis
+    greg_emoji = '<:Greg:1142725256897904651>'
+    fear_of_god_emoji = '<:fearofgod:1147324806337937448>'
+
+    # Check if the message contains specific keywords
+    keywords = [":Greg:", "Greg", "greg", "GT"]
+    reaction_emoji = greg_emoji if any(keyword in message.content for keyword in keywords) else None
+
+    if reaction_emoji:
         channel = message.channel
-        await message.add_reaction('<:Greg:1142725256897904651>')
-    elif "Greg" in message.content:
+        await message.add_reaction(reaction_emoji)
+
+    return
+    keywords = ["Ungreggy", "Acidic", "Bullshit", ":tci:"]
+    reaction_emoji2 = fear_of_god_emoji if any(keyword in message.content for keyword in keywords) else None
+
+    if reaction_emoji2:
         channel = message.channel
-        await message.add_reaction('<:Greg:1142725256897904651>')
-    elif "greg" in message.content:
-        channel = message.channel
-        await message.add_reaction('<:Greg:1142725256897904651>')
-    elif "GT" in message.content:
-        channel = message.channel
-        await message.add_reaction('<:Greg:1142725256897904651>')
-    elif "Ungreggy" in message.content:
-        channel = message.channel
-        await message.add_reaction('<:fearofgod:1147324806337937448>')
-    elif "Acidic" in message.content:
-        channel = message.channel
-        await message.add_reaction('<:fearofgod:1147324806337937448>')
-    elif "Bullshit" in message.content:
-        channel = message.channel
-        await message.add_reaction('<:fearofgod:1147324806337937448>')
-    elif ":tci:" in message.content:
-        channel = message.channel
-        await message.add_reaction('<:fearofgod:1147324806337937448>')
+        await message.add_reaction(reaction_emoji2)
+    return
 
     print(f'Message from {message.author}: {message.content}')
     bot_prefix = '%'
