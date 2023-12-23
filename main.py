@@ -390,182 +390,256 @@ async def exclusive_edit_embed_tag(ctx, tag, *, embed_content):
 #
 
 ### STOICHEMISTRY
+from chempy import Substance
 import re
 
-async def stoik_command(ctx):
-    try:
-        def add_elements(elements, count, element, multiplier):
-            if not count:
-                count = "1"
+import re
+from chempy import Substance
 
-            amount = int(count) * int(multiplier)
 
-            if amount > 2**24:
-                raise ValueError(f"{amount} is too large of a number")
+class StoikFormulaParser:
+    def __init__(self, equation):
+        self.equation = equation
+        self.reactants, self.products = self.equation.split('->')
+        self.reactant_components = []
+        self.product_components = []
 
-            elements.extend([element] * amount)
+    def parse_formula(self, formula):
+        composition = {}
+        regex = re.compile(r'(?P<element>[A-Z][a-z]*)(?P<count>\d*)')
 
-        def multiply_elements(elements, multiplier):
-            return [(symbol, count * int(multiplier)) for symbol, count in elements]
+        # Iterate over matches in the formula
+        for match in regex.finditer(formula):
+            element = match.group('element')
+            count = match.group('count')
+            count = int(count) if count else 1  # If count is not specified, assume 1
+            composition[element] = count
 
-        def parse_chemical(formula, multiplier="1"):
-            formula = formula.replace(" ", "")
-            elements = []
-            count = ""
-            symbol = ""
-            i = 0
+        # Check for parentheses and '^' symbol
+        if '(' in formula and ')' in formula:
+            # Extract the content inside the parentheses
+            inside_parentheses = re.search(r'\(([^)]+)\)', formula).group(1)
+            inside_parentheses_count = 1
 
-            while i < len(formula):
-                char = formula[i]
+            # Check for '^' symbol and get the count
+            if '^' in formula:
+                inside_parentheses_count = int(formula.split('^')[-1])
 
-                if char.isnumeric():
-                    count += char
-                elif char.isupper():
-                    if count:
-                        elements.append((symbol, int(count) * int(multiplier)))
-                        count = ""
-                    symbol = char
+            # Parse the content inside parentheses and multiply by the count
+            inside_parentheses_substance = self.parse_formula(inside_parentheses)
+            for element, count in inside_parentheses_substance.composition.items():
+                composition[element] = count * inside_parentheses_count
 
-                    if i + 1 < len(formula) and formula[i + 1].islower():
-                        symbol += formula[i + 1]
-                        i += 1
-                elif char == "(":
-                    j = i - 1
-                    while j >= 0 and formula[j].isdigit():
-                        count = formula[j] + count
-                        j -= 1
+        # Create a Substance object and set its composition
+        chempy_substance = Substance(formula)
+        chempy_substance.composition = composition
 
-                    left_number = int(count) if count else 1
+        return chempy_substance
 
-                    count = ""
-                    j = i + 1
-                    while j < len(formula) and formula[j].isdigit():
-                        count += formula[j]
-                        j += 1
+    def parse_equation(self):
+        reactants_list = [self.parse_formula(compound.strip()) for compound in self.reactants.split('+')]
+        products_list = [self.parse_formula(compound.strip()) for compound in self.products.split('+')]
 
-                    paren_coefficient = int(count) if count else 1
+        return reactants_list, products_list
 
-                    subchem_end = formula.find(")", j)
-                    if subchem_end == -1:
-                        raise ValueError("Unmatched parentheses in the formula")
+    def display_components(self, components, part_name):
+        print(f"{part_name} Components:")
+        for component_dict in components:
+            print(component_dict)
 
-                    subchem = formula[j:subchem_end]
-                    subchem_parsed = parse_chemical(subchem, str(left_number * paren_coefficient))
-                    elements.extend(multiply_elements(subchem_parsed, multiplier))
-
-                    i = subchem_end + 1
-
-                    # Check for a number following ")"
-                    count = ""
-                    while i < len(formula) and formula[i].isdigit():
-                        count += formula[i]
-                        i += 1
-
-                    post_paren_number = int(count) if count else 1
-                    multiplier = int(multiplier) * post_paren_number
-
-                    continue
-
-                i += 1
-
-            if count:
-                elements.append((symbol, int(count) * int(multiplier)))
-
-            return elements
-
-        formula_str = None
-        try:
-            split_formula = ctx.message.content.split(" ")
-            formula_str = " ".join(split_formula[1:])
-        except Exception as e:
-            return f"No formula supplied {str(e)}"
-
-        formula_str = formula_str.replace("`", "")
-        formula_str = formula_str.replace("=", "->")
-        formula_str = formula_str.replace(" ", "")
-
-        formula_sides = formula_str.split("->")
-        if len(formula_sides) != 2:
-            return """
-                    Error, malformed expression
-                    Please format equation as `Reactant1 + Reactant2 -> Product1 + Product2`
-                    E.g. `6CO2 + 6H2O -> C6H12O6 + 6O2`
-                    FYI spaces are stripped
-                    """
-
-        reactants = []
-        for formula in formula_sides[0].split("+"):
-            try:
-                reactants.extend(parse_chemical(formula))
-            except ValueError as e:
-                return f"Formula `{formula}` has an error: {str(e)}"
-
-        products = []
-        for formula in formula_sides[1].split("+"):
-            try:
-                products.extend(parse_chemical(formula))
-            except ValueError as e:
-                return f"Formula `{formula}` has an error: {str(e)}"
-
-        reactants = [elem for elem in reactants if elem]
-        products = [elem for elem in products if elem]
-
-        reactants_map = {}
-        products_map = {}
-
-        for element in reactants:
-            reactants_map[element] = reactants_map.get(element, 0) + 1
-
-        for element in products:
-            products_map[element] = products_map.get(element, 0) + 1
-
-        reactants_str_builder = ["```"]
-        products_str_builder = ["```"]
-        clay_str_builder = ["```"]
-        balanced = True
-
-        element_keys = sorted(set(products_map.keys()).union(reactants_map.keys()))
-        for element in element_keys:
-            if products_map.get(element, -1) == reactants_map.get(element, -1):
-                clay_str_builder.append("✅✅")
+    def process_components(self, components, component_list, level=0):
+        part_components = {}
+        for element, count in components.items():
+            if element in part_components:
+                part_components[element] += count
             else:
-                clay_str_builder.append("❌❌")
-                balanced = False
+                part_components[element] = count
 
-            products_str_builder.append(f"{element}:  {products_map.get(element, 0)}\n")
-            reactants_str_builder.append(f"{element}:  {reactants_map.get(element, 0)}\n")
+        # Add the components to the list at the corresponding level
+        if len(component_list) <= level:
+            component_list.append([])
+        component_list[level].append(part_components)
 
-            clay_str_builder.append("\n")
+        # Check for parentheses multiplication within the current level
+        for element, count in part_components.items():
+            if isinstance(count, dict):
+                self.process_components(count, component_list, level + 1)
 
-        clay_str_builder.append("```")
-        reactants_str_builder.append("```")
-        products_str_builder.append("```")
-        balanced_msg = "\u2705 Your reaction is balanced \u2705" if balanced else "\u274C Your reaction is unbalanced \u274C"
+    def calculate_components(self):
+        reactants_list, products_list = self.parse_equation()
 
-        return {
-            "Reactants": "".join(reactants_str_builder),
-            "Products": "".join(products_str_builder),
-            "Balanced": "".join(clay_str_builder),
-            "Status": balanced_msg,
-        }
+        # Process reactants components
+        for reactant in reactants_list:
+            self.process_components(reactant.composition, self.reactant_components)
 
-    except Exception as e:
-        return f"An error occurred: {str(e)}"
+        # Process products components
+        for product in products_list:
+            self.process_components(product.composition, self.product_components)
 
-# Define the stoik command
-@bot.command(name='stoik', help='Check whether a chemical equation is balanced')
-async def stoik(ctx):
+        # Display the final components
+        self.display_components(self.reactant_components, "Reactant")
+        self.display_components(self.product_components, "Product")
+
+        # Calculate and display the total sum of reactants and products
+        total_reactant_sum = {}
+        total_product_sum = {}
+
+        for level_components in self.reactant_components:
+            for components in level_components:
+                for element, count in components.items():
+                    if element in total_reactant_sum:
+                        total_reactant_sum[element] += count
+                    else:
+                        total_reactant_sum[element] = count
+
+        for level_components in self.product_components:
+            for components in level_components:
+                for element, count in components.items():
+                    if element in total_product_sum:
+                        total_product_sum[element] += count
+                    else:
+                        total_product_sum[element] = count
+
+        # Return the calculated sums instead of printing
+        return total_reactant_sum, total_product_sum
+
+@bot.command(name='stoik', help=
+             """Check if your equation is balanced.
+
+                Examples:
+                %stoik (C4E5)^4 + C6E13 -> (C2E3)^11
+                In here we use ^ to seperate (C4E5)^4
+                Note that %chem_stoik (C4E5)^4C6E13 -> (C2E3)^11 does not work
+                Incase an error is thrown""")
+async def stoik_command(ctx, *, chemical_equation):
     try:
-        result = await stoik_command(ctx)
-        embed = discord.Embed(title="Chemical Equation Balancer", color=0x00ff00)
-        embed.add_field(name="Reactants", value="".join(result["Reactants"]), inline=True)
-        embed.add_field(name="Products", value="".join(result["Products"]), inline=True)
-        embed.add_field(name="Balanced", value="".join(result["Balanced"]), inline=True)
-        embed.add_field(name="Status", value=result["Status"], inline=False)
-        await ctx.send(embed=embed)
-    except Exception as e:
-        await ctx.send(f"An error occurred: {str(e)}")
+        stoik_formula_parser = StoikFormulaParser(chemical_equation)
+        total_reactant_sum, total_product_sum = stoik_formula_parser.calculate_components()
 
+        # Check if the equation is balanced
+        equation_balanced = total_reactant_sum == total_product_sum
+
+        # Format the results as a Discord message
+        result_message = (
+            f"## Your Results:\n"
+            f"```Total Sum of Reactants:\n{total_reactant_sum}\n\nTotal Sum of Products:\n{total_product_sum}```\n"
+            f"{'Your Equation Was Balanced.' if equation_balanced else 'Your Equation is not balanced, or it may be too complicated.'}\n"
+            f"You can also try checking https://www.webqc.org/balance.php incase this simple stoik command does not satisfy your query.\n"
+            f"Try %stoik (C4E5)^4 + C6E13 -> (C2E3)^11"
+        )
+
+        # Send the results back to the Discord channel
+        await ctx.send(result_message)
+
+    except Exception as e:
+        result_message = (
+            f"!!! ERROR ALERT !!!\n"
+            f"Try reformatting your query, do %help stoik\n"
+            f"!!! REPORT ALL ISSUES TO THE BOT DEVELOPER.\n"
+            f"Error: {e}\n"
+            f"Try checking https://www.webqc.org/balance.php if your equation is very advanced."
+        )
+        await ctx.send(result_message)
+
+# Gas Laws
+# Define commands for each gas law
+@bot.command(name='cgl_boyle', help='Calculate Boyle\'s Law. Provide any two of the three variables (P, V, k).')
+async def boyle(ctx, p: float = None, v: float = None, k: float = None):
+    if p is not None and v is not None:
+        k = p * v
+        await ctx.send(f'Boyle\'s Law: PV = {k}')
+    elif p is not None and k is not None:
+        v = k / p
+        await ctx.send(f'Boyle\'s Law: V = {v}')
+    elif v is not None and k is not None:
+        p = k / v
+        await ctx.send(f'Boyle\'s Law: P = {p}')
+    else:
+        await ctx.send('Invalid input. Provide at least two variables.')
+
+@bot.command(name='cgl_charles', help='Calculate Charles\'s Law. Provide any two of the three variables (V, T, k).')
+async def charles(ctx, v: float = None, t: float = None, k: float = None):
+    if v is not None and t is not None:
+        k = v * t
+        await ctx.send(f'Charles\'s Law: VT = {k}')
+    elif v is not None and k is not None:
+        t = k / v
+        await ctx.send(f'Charles\'s Law: T = {t}')
+    elif t is not None and k is not None:
+        v = k / t
+        await ctx.send(f'Charles\'s Law: V = {v}')
+    else:
+        await ctx.send('Invalid input. Provide at least two variables.')
+
+@bot.command(name='cgl_gaylussac', help='Calculate Gay-Lussac\'s Law. Provide any two of the three variables (P, T, k).')
+async def gaylussac(ctx, p: float = None, t: float = None, k: float = None):
+    if p is not None and t is not None:
+        k = p * t
+        await ctx.send(f'Gay-Lussac\'s Law: PT = {k}')
+    elif p is not None and k is not None:
+        t = k / p
+        await ctx.send(f'Gay-Lussac\'s Law: T = {t}')
+    elif t is not None and k is not None:
+        p = k / t
+        await ctx.send(f'Gay-Lussac\'s Law: P = {p}')
+    else:
+        await ctx.send('Invalid input. Provide at least two variables.')
+
+@bot.command(name='cgl_avogadro', help='Calculate Avogadro\'s Law. Provide any two of the three variables (V, N, k).')
+async def avogadro(ctx, v: float = None, n: float = None, k: float = None):
+    if v is not None and n is not None:
+        k = v * n
+        await ctx.send(f'Avogadro\'s Law: VN = {k}')
+    elif v is not None and k is not None:
+        n = k / v
+        await ctx.send(f'Avogadro\'s Law: N = {n}')
+    elif n is not None and k is not None:
+        v = k / n
+        await ctx.send(f'Avogadro\'s Law: V = {v}')
+    else:
+        await ctx.send('Invalid input. Provide at least two variables.')
+
+@bot.command(name='cgl_idealgas', help='Calculate Ideal Gas Law. Provide all four variables (P, V, n, T).')
+async def idealgas(ctx, p: float = None, v: float = None, n: float = None, t: float = None, r: float = 8.314):
+    if p is not None and v is not None and n is not None and t is not None:
+        k = p * v / (n * r * t)
+        await ctx.send(f'Ideal Gas Law: PV = nRT, k = {k}')
+    else:
+        await ctx.send('Invalid input. Provide all variables (P, V, n, T).')
+
+@bot.command(name='cgl_dalton', help='Calculate Dalton\'s Law. Provide pressures for each gas.')
+async def dalton(ctx, *pressures: float):
+    total_pressure = sum(pressures)
+    await ctx.send(f'Dalton\'s Law: P_total = {total_pressure}')
+
+# Physics
+
+# Define a function to calculate Schrödinger's equation
+def calculate_schrodingers_equation(equation):
+    t, x, psi = sp.symbols('t x Psi', real=True)
+    i = sp.I  # imaginary unit
+    h_bar = sp.symbols('h_bar', positive=True, real=True)  # Planck's reduced constant
+
+    # Define the time-dependent Schrödinger's equation
+    schrodingers_equation = sp.Eq(sp.I * h_bar * sp.diff(psi, t), -h_bar**2 / (2 * sp.pi**2 * sp.m**2) * sp.diff(psi, x, x))
+
+    # Solve the equation
+    solution = sp.dsolve(schrodingers_equation, psi)
+
+    return solution
+
+# Define a command to calculate time-dependent Schrödinger's equation
+@bot.command()
+async def time_dependent(ctx):
+    equation = calculate_schrodingers_equation("time-dependent")
+    await ctx.send(f"Time-dependent Schrödinger's equation solution:\n```{equation}```")
+
+# Define a command to calculate time-independent Schrödinger's equation
+@bot.command()
+async def time_independent(ctx):
+    equation = calculate_schrodingers_equation("time-independent")
+    await ctx.send(f"Time-independent Schrödinger's equation solution:\n```{equation}```")
+    
 # 
 # META COMMANDS
 #
@@ -625,8 +699,36 @@ async def on_ready():
 # Event when a message is received
 @bot.event
 async def on_message(message):
+    # Check if the message contains the :Greg: emoji
+    if ":Greg:" in message.content:
+        channel = message.channel
+        await message.add_reaction('<:Greg:1142725256897904651>')
+    elif "Greg" in message.content:
+        channel = message.channel
+        await message.add_reaction('<:Greg:1142725256897904651>')
+    elif "greg" in message.content:
+        channel = message.channel
+        await message.add_reaction('<:Greg:1142725256897904651>')
+    elif "GT" in message.content:
+        channel = message.channel
+        await message.add_reaction('<:Greg:1142725256897904651>')
+    elif "Ungreggy" in message.content:
+        channel = message.channel
+        await message.add_reaction('<:fearofgod:1147324806337937448>')
+    elif "Acidic" in message.content:
+        channel = message.channel
+        await message.add_reaction('<:fearofgod:1147324806337937448>')
+    elif "Bullshit" in message.content:
+        channel = message.channel
+        await message.add_reaction('<:fearofgod:1147324806337937448>')
+    elif ":tci:" in message.content:
+        channel = message.channel
+        await message.add_reaction('<:fearofgod:1147324806337937448>')
+
     print(f'Message from {message.author}: {message.content}')
     bot_prefix = '%'
+    await bot.process_commands(message)  # Process commands in on_message
+    """
     if any(char in message.content for char in bot_prefix):
         # Check if the message content contains characters that might break JSON code formatting
         invalid_characters = ['{', '[', ']', '}', '"', "'", '\\', '...']  # Add more if needed
@@ -634,8 +736,8 @@ async def on_message(message):
         if any(char in message.content for char in invalid_characters):
             await message.channel.send("Invalid characters detected. The command contains characters that might break JSON code formatting.")
             return
-
         await bot.process_commands(message)  # Process commands in on_message
         return
-
+    """
+    
 bot.run(bot_token)
